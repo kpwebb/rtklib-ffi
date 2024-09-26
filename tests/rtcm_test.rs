@@ -1,6 +1,6 @@
 use std::{fs::File, io::Read, mem::MaybeUninit, ptr::addr_of_mut};
 use rtcm_rs::MsgFrameIter;
-use rtklib_sys::{decode_msm7, obsd_t, rtcm_t};
+use rtklib_sys::rtklib::{decode_msm7, rtcm_t, obsd_t};
 
 #[test]
 fn parse_rtcm_1077() {
