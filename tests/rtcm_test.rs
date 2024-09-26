@@ -1,6 +1,3 @@
-extern crate rtcm_rs;
-extern crate rtklib_sys;
-
 use std::{fs::File, io::Read, mem::MaybeUninit, ptr::addr_of_mut};
 use rtcm_rs::MsgFrameIter;
 use rtklib_sys::{decode_msm7, obsd_t, rtcm_t};
