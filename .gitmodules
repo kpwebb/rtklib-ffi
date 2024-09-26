@@ -1,4 +1,4 @@
 [submodule "rtklib-sys/rtklib"]
 	path = rtklib-sys/rtklib
-	url = git@github.com:kpwebb/rtklib.git
+	url = https://github.com/kpwebb/rtklib.git
 	branch = main
