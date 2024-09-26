@@ -16,6 +16,7 @@ fn main() {
     cc::Build::new()
     .file("rtklib/src/rtkcmn.c")
     .file("rtklib/src/rtcm3.c")
+    .warnings(false)
     .compile("rtklib");
 
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
