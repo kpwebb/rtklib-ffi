@@ -1,0 +1,27 @@
+[package]
+name = "rtklib-ffi"
+description = "Rust wrapper for RTKLIB"
+version = "0.1.0"
+c
+authors = ["Kevin Webb"]
+repository = "https://github.com/kpwebb/rtklib-ffi"
+license = "MIT"
+keywords = ["rtk", "rtklib", "gnss",]
+homepage = "https://github.com/kpwebb/rtklib-ffi"
+exclude = [
+    ".gitignore",
+    "test/**/*",
+]
+
+[workspace]
+members = ["rtklib-sys"]
+
+[features]
+default = ["rtcm3"]
+rtcm3 = []
+
+[dependencies]
+rtklib-sys = { path = "rtklib-sys/", version = "0.1.0" }
+
+[dev-dependencies]
+rtcm-rs = "0.11.0"
