@@ -1,0 +1,1 @@
+Rust bindgen interface for RTKLIB. This project references a [fork](https://github.com/kpwebb/RTKLIB) of the [rtkexplorer/rtklib](https://github.com/rtklibexplorer/RTKLIB/releases) project to add additional rtcm3 related function exports. YMMV
