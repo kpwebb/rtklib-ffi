@@ -1,7 +1,7 @@
 [package]
 name = "rtklib-ffi"
 description = "Rust wrapper for RTKLIB"
-version = "0.1.1"
+version = "0.1.3"
 edition = "2018"
 authors = ["Kevin Webb"]
 repository = "https://github.com/kpwebb/rtklib-ffi"
@@ -21,7 +21,7 @@ default = ["rtcm3"]
 rtcm3 = []
 
 [dependencies]
-rtklib-sys = { path = "rtklib-sys/", version = "0.1.0" }
+rtklib-sys = { path = "rtklib-sys/", version = "0.1.3" }
 
 [dev-dependencies]
 rtcm-rs = "0.11.0"
