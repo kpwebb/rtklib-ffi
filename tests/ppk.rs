@@ -7,7 +7,8 @@
 
 use rtklib_ffi::{
     ppk::{
-        postpos, ArMode, FilOpt, IonoOpt, PosMode, PostposError, PrcOpt, SolFormat, SolOpt, TropOpt,
+        postpos, ArMode, FilOpt, IonoOpt, PosMode, PostposError, PrcOpt, SolFormat, SolOpt,
+        TimeFormat, TropOpt,
     },
     NavSys,
 };
@@ -16,30 +17,30 @@ use std::{fs, path::Path};
 
 #[test]
 fn prcopt_kinematic_builder() {
-    let mut opt = PrcOpt::kinematic();
-    opt.set_navsys(NavSys::Gps | NavSys::Glo | NavSys::Gal)
-        .set_frequencies(2)
-        .set_elevation_mask(15.0)
-        .set_ar_mode(ArMode::FixAndHold)
-        .set_ionosphere(IonoOpt::IonFreeLC)
-        .set_troposphere(TropOpt::Saastamoinen);
+    let opt = PrcOpt::kinematic()
+        .with_navsys(NavSys::Gps | NavSys::Glo | NavSys::Gal)
+        .with_frequencies(2)
+        .with_elevation_mask(15.0)
+        .with_ar_mode(ArMode::FixAndHold)
+        .with_ionosphere(IonoOpt::IonFreeLc)
+        .with_troposphere(TropOpt::Saastamoinen);
 
     assert_eq!(opt.mode(), PosMode::Kinematic);
     assert_eq!(opt.navsys(), NavSys::Gps | NavSys::Glo | NavSys::Gal);
     assert_eq!(opt.frequencies(), 2);
     assert!((opt.elevation_mask() - 15.0_f64.to_radians()).abs() < 1e-12);
     assert_eq!(opt.ar_mode(), ArMode::FixAndHold);
-    assert_eq!(opt.ionosphere(), IonoOpt::IonFreeLC);
+    assert_eq!(opt.ionosphere(), IonoOpt::IonFreeLc);
     assert_eq!(opt.troposphere(), TropOpt::Saastamoinen);
 }
 
 #[test]
 fn prcopt_static_builder() {
-    let mut opt = PrcOpt::static_mode();
-    opt.set_navsys(NavSys::Gps)
-        .set_frequencies(1)
-        .set_elevation_mask(10.0)
-        .set_ar_mode(ArMode::Continuous);
+    let opt = PrcOpt::static_mode()
+        .with_navsys(NavSys::Gps)
+        .with_frequencies(1)
+        .with_elevation_mask(10.0)
+        .with_ar_mode(ArMode::Continuous);
 
     assert_eq!(opt.mode(), PosMode::Static);
     assert_eq!(opt.navsys(), NavSys::Gps);
@@ -50,14 +51,14 @@ fn prcopt_static_builder() {
 
 #[test]
 fn solopt_setters() {
-    let mut sopt = SolOpt::default();
-    sopt.set_format(SolFormat::Xyz)
-        .set_time_format(1)
-        .set_time_decimals(3)
-        .set_output_header(true);
+    let sopt = SolOpt::default()
+        .with_format(SolFormat::Xyz)
+        .with_time_format(TimeFormat::Calendar)
+        .with_time_decimals(3)
+        .with_output_header(true);
 
     assert_eq!(sopt.format(), SolFormat::Xyz);
-    assert_eq!(sopt.time_format(), 1);
+    assert_eq!(sopt.time_format(), TimeFormat::Calendar);
     assert_eq!(sopt.time_decimals(), 3);
     assert!(sopt.output_header());
 }
@@ -71,18 +72,18 @@ fn ppk_with_rinex2_test_data() {
     let nav = format!("{}/07590920.05n", data);
     let output = "/tmp/rtklib-ffi-test-output.pos";
 
-    let mut popt = PrcOpt::kinematic();
-    popt.set_navsys(NavSys::Gps)
-        .set_frequencies(1)
-        .set_elevation_mask(15.0)
-        .set_ar_mode(ArMode::Continuous)
-        .set_ionosphere(IonoOpt::Broadcast)
-        .set_troposphere(TropOpt::Saastamoinen);
+    let popt = PrcOpt::kinematic()
+        .with_navsys(NavSys::Gps)
+        .with_frequencies(1)
+        .with_elevation_mask(15.0)
+        .with_ar_mode(ArMode::Continuous)
+        .with_ionosphere(IonoOpt::Broadcast)
+        .with_troposphere(TropOpt::Saastamoinen);
 
-    let mut sopt = SolOpt::default();
-    sopt.set_format(SolFormat::Llh)
-        .set_time_format(1)
-        .set_time_decimals(3);
+    let sopt = SolOpt::default()
+        .with_format(SolFormat::Llh)
+        .with_time_format(TimeFormat::Calendar)
+        .with_time_decimals(9);
 
     let fopt = FilOpt::default();
 

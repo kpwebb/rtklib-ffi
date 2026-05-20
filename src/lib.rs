@@ -4,14 +4,20 @@
 //!
 //! Enable functionality via Cargo features:
 //!
-//! - **`ppk`** — Post-processed kinematic positioning via [`postpos()`].
-//! - **`rtcm`** — RTCM3 message decoding via [`RtcmDecoder`].
-//! - **`conv`** — File format conversion.
-//! - **`raw`** — Raw receiver data decoding.
-//! - **`net`** — Network streaming.
-//! - **`gis`** — GIS data support.
-//! - **`tle`** — TLE satellite tracking.
-//! - **`hifitime`** — Conversions between [`GpsTime`] and [`hifitime::Epoch`].
+//! - **`conv`**: File format conversion. Implies `receivers` - `convrnx` calls
+//!   `init_raw` at link time regardless of input format, which requires all
+//!   receiver format files to be present.
+//! - **`gis`**: GIS data support.
+//! - **`hifitime`**: Conversions between [`GpsTime`] and [`hifitime::Epoch`].
+//! - **`net`**: Network streaming.
+//! - **`ppk`**: Post-processed kinematic positioning via [`postpos()`].
+//! - **`receivers`**: All supported hardware receiver decoders: BINEX, Hemisphere
+//!   Crescent, Javad/Topcon, NovAtel OEM, NVS, Septentrio SBF, SkyTraq, Swift
+//!   Navigation SBP, Trimble RT17, u-blox UBX, and Unicore. ComNav and Tersus are
+//!   not included; their source files use APIs removed in the current upstream.
+//! - **`rtcm`**: RTCM3 message decoding via [`RtcmDecoder`].
+//! - **`strum`**: Adds [`std::fmt::Display`] support for enums via the optional [`strum`](https://docs.rs/strum) dependency.
+//! - **`tle`**: TLE satellite tracking.
 
 #[cfg(feature = "hifitime")]
 use hifitime::Epoch;
@@ -27,6 +33,26 @@ pub use ppk::*;
 pub mod solution;
 #[cfg(feature = "ppk")]
 pub use solution::*;
+
+pub mod meas;
+pub use meas::*;
+
+mod util;
+
+/// Error returned when a decoder fails to initialize.
+#[derive(Debug, thiserror::Error)]
+#[error("failed to initialize decoder")]
+pub struct DecoderInitError;
+
+#[cfg(feature = "receivers")]
+pub mod receiver;
+#[cfg(feature = "receivers")]
+pub use receiver::*;
+
+#[cfg(feature = "conv")]
+pub mod conv;
+#[cfg(feature = "conv")]
+pub use conv::*;
 
 #[cfg(feature = "rtcm")]
 pub mod rtcm;
@@ -177,6 +203,8 @@ impl From<GpsTime> for Epoch {
 }
 
 /// Solution quality status.
+#[cfg_attr(feature = "strum", derive(strum::Display))]
+#[cfg_attr(feature = "strum", strum(serialize_all = "SCREAMING_SNAKE_CASE"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, TryFromPrimitive)]
 #[repr(u32)]
 pub enum SolStatus {

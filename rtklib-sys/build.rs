@@ -52,32 +52,59 @@ fn main() {
         println!("cargo:rustc-link-lib=pthread");
     }
 
+    // These files are needed by both ppk and conv. convrnx.c calls pntpos for
+    // auto-position estimation; pntpos.c calls into preceph.c and ionex.c;
+    // rinex.c and sbas.c are referenced unconditionally by convrnx.c.
+    #[cfg(any(feature = "ppk", feature = "conv"))]
+    {
+        build.file("rtklib/src/rinex.c");
+        build.file("rtklib/src/ephemeris.c");
+        build.file("rtklib/src/sbas.c");
+        build.file("rtklib/src/pntpos.c");
+        build.file("rtklib/src/preceph.c");
+        build.file("rtklib/src/ionex.c");
+    }
+
     #[cfg(feature = "ppk")]
     {
         build.file("rtklib/src/postpos.c");
         build.file("rtklib/src/rtkpos.c");
-        build.file("rtklib/src/pntpos.c");
-        build.file("rtklib/src/rinex.c");
-        build.file("rtklib/src/ephemeris.c");
-        build.file("rtklib/src/preceph.c");
         build.file("rtklib/src/lambda.c");
         build.file("rtklib/src/solution.c");
-        build.file("rtklib/src/ionex.c");
-        build.file("rtklib/src/sbas.c");
         build.file("rtklib/src/options.c");
         build.file("rtklib/src/ppp.c");
         build.file("rtklib/src/ppp_ar.c");
         build.file("rtklib/src/tides.c");
     }
 
-    #[cfg(feature = "raw")]
+    // All receiver format files must be compiled together with rcvraw.c.
+    // rcvraw.c calls init, free, and input functions for every supported
+    // format unconditionally - there are no #ifdef guards - so all format
+    // .c files must be present in the same link unit whenever rcvraw.c is.
+    #[cfg(feature = "receivers")]
     {
         build.file("rtklib/src/rcvraw.c");
+        build.include("rtklib/src");
+        build.file("rtklib/src/rcv/binex.c");
+        build.file("rtklib/src/rcv/crescent.c");
+        build.file("rtklib/src/rcv/javad.c");
+        build.file("rtklib/src/rcv/novatel.c");
+        build.file("rtklib/src/rcv/nvs.c");
+        build.file("rtklib/src/rcv/rt17.c");
+        build.file("rtklib/src/rcv/septentrio.c");
+        build.file("rtklib/src/rcv/skytraq.c");
+        build.file("rtklib/src/rcv/swiftnav.c");
+        build.file("rtklib/src/rcv/ublox.c");
+        build.file("rtklib/src/rcv/unicore.c");
+        // comnav.c and tersus.c use satwavelen() and lam_carr[] which were
+        // removed upstream; excluded until updated to use sat2freq().
+        // build.file("rtklib/src/rcv/comnav.c");
+        // build.file("rtklib/src/rcv/tersus.c");
     }
 
-    // RTCM files are needed by both ppk and rtcm features.
-    // PPK uses them for SSR corrections.
-    #[cfg(any(feature = "ppk", feature = "rtcm"))]
+    // RTCM files are needed by ppk, rtcm, and conv.
+    // PPK uses them for SSR corrections; conv uses them for RTCM input.
+    #[cfg(any(feature = "ppk", feature = "rtcm", feature = "conv"))]
     {
         build.file("rtklib/src/rtcm.c");
         build.file("rtklib/src/rtcm2.c");
@@ -93,6 +120,7 @@ fn main() {
     #[cfg(unix)]
     println!("cargo:rustc-link-lib=m");
 
+    build.opt_level_str(&env::var("OPT_LEVEL").unwrap());
     build.warnings(false);
     build.compile("rtklib");
 

@@ -11,7 +11,7 @@ use rtklib_ffi::{satno, NavSys};
 #[test]
 fn decode_rtcm3_ephemeris() {
     let data = std::fs::read("tests/debug.rtcm").expect("failed to read test file");
-    let mut decoder = RtcmDecoder::new().expect("failed to init RTCM decoder");
+    let mut decoder = RtcmDecoder::try_new().expect("failed to init RTCM decoder");
 
     let mut ephemeris_count = 0u32;
     let mut msg_types: Vec<MsgType> = Vec::new();
@@ -20,7 +20,8 @@ fn decode_rtcm3_ephemeris() {
     let mut prev_obs_n = 0usize;
 
     for &byte in &data {
-        match decoder.decode(byte).expect("RTCM3 decode error") {
+        let Some(status) = decoder.decode(byte) else { continue; };
+        match status {
             DecodeResult::Incomplete => {
                 // MSM7 messages with sync=1 return Incomplete but still
                 // store observations in the internal buffer. Detect this
@@ -30,8 +31,8 @@ fn decode_rtcm3_ephemeris() {
                     prev_obs_n = n;
                     let sats: Vec<u8> = decoder.observations().iter().map(|o| o.sat()).collect();
                     match decoder.message_type() {
-                        Ok(MsgType::GpsMsm7) => gps_sats = sats,
-                        Ok(MsgType::GalMsm7) => gal_sats = sats,
+                        Some(MsgType::GpsMsm7) => gps_sats = sats,
+                        Some(MsgType::GalMsm7) => gal_sats = sats,
                         _ => {}
                     }
                 }
@@ -42,8 +43,9 @@ fn decode_rtcm3_ephemeris() {
                 msg_types.push(mt);
             }
             _ => {
-                let mt = decoder.message_type().expect("unknown message type");
-                msg_types.push(mt);
+                if let Some(mt) = decoder.message_type() {
+                    msg_types.push(mt);
+                }
             }
         }
     }

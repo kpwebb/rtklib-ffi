@@ -3,16 +3,17 @@
 //! ```no_run
 //! use rtklib_ffi::rtcm::{DecodeResult, MsgType, RtcmDecoder};
 //!
-//! let mut decoder = RtcmDecoder::new().unwrap();
+//! let mut decoder = RtcmDecoder::try_new().unwrap();
 //! # let rtcm_bytes: Vec<u8> = vec![];
 //!
 //! for &byte in &rtcm_bytes {
-//!     match decoder.decode(byte) {
-//!         Ok(DecodeResult::Observation) => {
+//!     let Some(status) = decoder.decode(byte) else { continue; };
+//!     match status {
+//!         DecodeResult::Observation => {
 //!             let obs = decoder.observations();
 //!             // process observations...
 //!         }
-//!         Ok(DecodeResult::Ephemeris) => {
+//!         DecodeResult::Ephemeris => {
 //!             let msg_type = decoder.message_type().unwrap();
 //!             // handle ephemeris...
 //!         }
@@ -21,23 +22,10 @@
 //! }
 //! ```
 
+use crate::{meas::ObsData, DecoderInitError};
 use num_enum::TryFromPrimitive;
 use rtklib_sys::rtklib as ffi;
 use std::convert::TryFrom;
-
-/// Errors from RTCM decoding.
-#[derive(Debug, thiserror::Error)]
-pub enum RtcmError {
-    /// `init_rtcm` failed to allocate internal buffers.
-    #[error("failed to initialize RTCM decoder (allocation failure)")]
-    InitFailed,
-    /// `input_rtcm3` returned a decode error.
-    #[error("RTCM3 decode error")]
-    DecodeError,
-    /// Unrecognized RTCM3 message type number.
-    #[error("unknown RTCM3 message type: {0}")]
-    UnknownMessageType(u16),
-}
 
 /// Outcome of feeding a byte into the RTCM3 decoder.
 ///
@@ -45,6 +33,7 @@ pub enum RtcmError {
 /// `-1`=error, `0`=no message, `1`=observation, `2`=ephemeris,
 /// `5`=station info, `6`=time params, `7`=DGPS corrections,
 /// `9`=special message, `20`=SSR corrections.
+#[cfg_attr(feature = "strum", derive(strum::Display))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, TryFromPrimitive)]
 #[repr(i32)]
 pub enum DecodeResult {
@@ -66,64 +55,19 @@ pub enum DecodeResult {
     SsrCorrections = 20,
 }
 
-/// A single GNSS observation record.
-///
-/// Transparent wrapper around the FFI `obsd_t` struct. References are
-/// obtained via [`RtcmDecoder::observations`].
-#[repr(transparent)]
-pub struct ObsData(ffi::obsd_t);
-
-impl ObsData {
-    /// Satellite number (RTKLIB internal numbering).
-    pub fn sat(&self) -> u8 {
-        self.0.sat
-    }
-
-    /// Carrier phase measurements (cycles) for up to 3 frequencies.
-    pub fn carrier_phase(&self) -> &[f64; 3] {
-        &self.0.L
-    }
-
-    /// Pseudorange measurements (meters) for up to 3 frequencies.
-    pub fn pseudorange(&self) -> &[f64; 3] {
-        &self.0.P
-    }
-
-    /// Doppler measurements (Hz) for up to 3 frequencies.
-    pub fn doppler(&self) -> &[f32; 3] {
-        &self.0.D
-    }
-
-    /// Signal-to-noise ratio (dB-Hz) for up to 3 frequencies.
-    pub fn snr(&self) -> &[f32; 3] {
-        &self.0.SNR
-    }
-
-    /// Signal code identifiers for up to 3 frequencies.
-    pub fn code(&self) -> &[u8; 3] {
-        &self.0.code
-    }
-
-    /// Loss-of-lock indicators for up to 3 frequencies.
-    pub fn lli(&self) -> &[u8; 3] {
-        &self.0.LLI
-    }
-}
-
 /// RTCM3 message decoder.
 ///
-/// Wraps the RTKLIB `rtcm_t` struct. Call [`new`](Self::new) to create,
+/// Wraps the RTKLIB `rtcm_t` struct. Call [`try_new`](Self::try_new) to create,
 /// then feed bytes via [`decode`](Self::decode). When `decode` returns
-/// [`DecodeResult::Observation`], read the observations with
+/// [`Some(DecodeResult::Observation)`], read the observations with
 /// [`observations`](Self::observations).
 pub struct RtcmDecoder(Box<ffi::rtcm_t>);
 
 impl RtcmDecoder {
     /// Create a new RTCM decoder.
     ///
-    /// Returns `Err(RtcmError::InitFailed)` if RTKLIB cannot allocate
-    /// internal buffers.
-    pub fn new() -> Result<Self, RtcmError> {
+    /// Returns `Err` if RTKLIB cannot allocate internal buffers.
+    pub fn try_new() -> Result<Self, DecoderInitError> {
         unsafe {
             // rtcm_t is ~886KB, too large for the stack. Allocate zeroed
             // memory directly on the heap to avoid stack overflow.
@@ -134,25 +78,27 @@ impl RtcmDecoder {
             }
             let mut rtcm = Box::from_raw(ptr);
             if ffi::init_rtcm(rtcm.as_mut()) == 0 {
-                return Err(RtcmError::InitFailed);
+                return Err(DecoderInitError);
             }
             Ok(Self(rtcm))
         }
     }
 
     /// Feed one byte into the RTCM3 decoder.
-    pub fn decode(&mut self, byte: u8) -> Result<DecodeResult, RtcmError> {
+    ///
+    /// Returns `None` if the byte did not complete a recognized message.
+    pub fn decode(&mut self, byte: u8) -> Option<DecodeResult> {
         let ret = unsafe { ffi::input_rtcm3(self.0.as_mut(), byte) };
-        DecodeResult::try_from(ret).map_err(|_| RtcmError::DecodeError)
+        DecodeResult::try_from(ret).ok()
     }
 
     /// The RTCM3 message type of the last decoded message.
     ///
-    /// Returns `Err(UnknownMessageType)` if the type number is not recognized.
-    /// Only meaningful after `decode` returns a non-`Incomplete` result.
-    pub fn message_type(&self) -> Result<MsgType, RtcmError> {
+    /// Returns `None` if the type number is not recognized.
+    /// Only meaningful after `decode` returns `Some`.
+    pub fn message_type(&self) -> Option<MsgType> {
         let raw = unsafe { ffi::getbitu(self.0.buff.as_ptr(), 24, 12) as u16 };
-        MsgType::try_from(raw).map_err(|_| RtcmError::UnknownMessageType(raw))
+        MsgType::try_from(raw).ok()
     }
 
     /// Number of observation records in the current message.
@@ -190,6 +136,7 @@ impl Drop for RtcmDecoder {
 ///
 /// Reference: [RTCM 3 Message List](https://www.use-snip.com/kb/knowledge-base/rtcm-3-message-list/)
 /// and RTCM Standard 10403.x.
+#[cfg_attr(feature = "strum", derive(strum::Display))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, TryFromPrimitive)]
 #[repr(u16)]
 pub enum MsgType {

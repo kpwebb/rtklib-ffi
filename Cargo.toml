@@ -1,7 +1,7 @@
 [package]
 name = "rtklib-ffi"
 description = "Rust wrapper for RTKLIB"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Kevin Webb", "Joseph Fox-Rabinovitz"]
 repository = "https://github.com/kpwebb/rtklib-ffi"
@@ -23,15 +23,17 @@ gis = ["rtklib-sys/gis"]
 hifitime = ["dep:hifitime"]
 net = ["rtklib-sys/net"]
 ppk = ["rtklib-sys/ppk"]
-raw = ["rtklib-sys/raw"]
+receivers = ["rtklib-sys/receivers"]
 rtcm = ["rtklib-sys/rtcm"]
+strum = ["dep:strum"]
 tle = ["rtklib-sys/tle"]
 
 [dependencies]
 bitflags = "2"
 hifitime = { version = "4", optional = true }
 num_enum = "0.7.3"
-rtklib-sys = { path = "rtklib-sys/", version = "0.2.0" }
+rtklib-sys = { path = "rtklib-sys/", version = "0.3.0" }
+strum = { version = "0.27", features = ["derive"], optional = true }
 thiserror = "2"
 
 [dev-dependencies]
